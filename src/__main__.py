@@ -8,6 +8,7 @@ import sys
 import time
 import shlex
 from typing import Generator
+from tqdm import tqdm
 
 DEFAULT_PASSWORD_LIST_URL = "https://raw.githubusercontent.com/danielmiessler/SecLists/refs/heads/master/Passwords/Common-Credentials/100k-most-used-passwords-NCSC.txt"
 
@@ -192,7 +193,10 @@ def normalized_passwords(passwords: list[str]) -> Generator[str, None, None]:
 
 
 def brute_force(ssid, passwords, args):
-    for password in normalized_passwords(passwords):
+    # Convert passwords to list for tqdm to work properly
+    password_list = list(normalized_passwords(passwords))
+    
+    for password in tqdm(password_list, desc=f"Brute-forcing {ssid}", unit="passwords"):
             
         if args.verbose is True:
             print(bcolors.HEADER+"** TESTING **: with password '" +
