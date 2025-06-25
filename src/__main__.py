@@ -215,8 +215,7 @@ def brute_force(ssid, passwords, args):
                 else:
                     time.sleep(1)
             
-            command = shlex.split(f"sudo nmcli dev wifi connect {ssid} password {password}")
-            
+            command = shlex.split(f"sudo nmcli dev wifi connect {shlex.quote(ssid)} password {shlex.quote(password)}")
             try:
                 output = subprocess.run(command, capture_output=True, text=True, 
                     check=True)
